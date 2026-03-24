@@ -44,7 +44,7 @@ const GH=({label})=>(
 );
 const CT=({active,payload,label})=>{
   if(!active||!payload?.length)return null;
-  return <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 12px",fontSize:11}}><div style={{color:MUTED,marginBottom:4}}>{label}</div>{payload.map((p,i)=><div key={i} style={{color:p.color,...mono}}>€{p.value}</div>)}</div>;
+  return <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 12px",fontSize:11}}><div style={{color:MUTED,marginBottom:4}}>{label}</div>{payload.map((p,i)=><div key={i} style={{color:p.color,...mono}}>{p.value}</div>)}</div>;
 };
 
 const trendData=[
