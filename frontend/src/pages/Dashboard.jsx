@@ -95,11 +95,31 @@ const products=[
 ];
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
-function OverviewTab({m}){
-  const brands=[
+function OverviewTab({m,data,brand}){
+  // Calcola statistiche dagli ordini reali
+  const orders=data?.orders||[];
+  const pl=data?.pl;
+  const trend=data?.trend||trendData;
+
+  const totalOrders=orders.length||59;
+  const revenue=pl?("€"+pl.net_revenue.toLocaleString("it-IT",{minimumFractionDigits:2})):"€2.840,77";
+  const netto=pl?(pl.net_profit>=0?"€":"−€")+Math.abs(pl.net_profit).toLocaleString("it-IT",{minimumFractionDigits:2}):"€366,05";
+  const nettoP=pl?pl.net_profit_pct+"%":"12.9%";
+  const codOrders=orders.filter(o=>o.payment_gateway==="cod"||o.canale==="COD").length;
+  const codPct=orders.length?Math.round(codOrders/orders.length*100):72;
+
+  const displayBrands=brand?[{
+    name:brand.name,dot:G,
+    ordini:totalOrders,revenue,netto,nettoP,
+    roas:pl?(pl.roas+"x"):"1.82x",
+    cpa:pl?("€"+pl.cpa.toFixed(2)):"€31,54",
+    aov:pl?("€"+pl.aov.toFixed(2)):"€48,95",
+    cod:codPct+"%",reso:"0%",
+  }]:[
     {name:"MELLOW",dot:G,ordini:47,revenue:"€2.300,57",netto:"€409,15",nettoP:"17.8%",roas:"1.82x",cpa:"€31,54",aov:"€48,95",cod:"72%",reso:"0%"},
     {name:"NAIRE",dot:B,ordini:12,revenue:"€540,20",netto:"-€43,10",nettoP:"-7.9%",roas:"1.84x",cpa:"€42,10",aov:"€45,02",cod:"83%",reso:"0%"},
   ];
+  const brands=displayBrands;
   return(<div>
     <p style={{fontSize:12,color:MUTED,marginBottom:14}}>Tutti i Brand — 17/03/2026 → 24/03/2026</p>
     <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:16}}>
@@ -594,19 +614,24 @@ function InventarioTab(){
   </div>);
 }
 
-function CashFlowTab(){
+function CashFlowTab({m,data}){
+  const realPayouts=data?.payouts?.length?data.payouts.map(p=>({date:p.payout_date||p.date,imp:"€"+(parseFloat(p.amount||0).toFixed(2).replace(".",",")),st:p.status==="paid"?"Pagato":p.status==="in_transit"?"In transito":"In attesa"})):null;
+  const displayPayouts=realPayouts||payouts;
+  const totalRicevuto=data?.payouts?.filter(p=>p.status==="paid").reduce((s,p)=>s+parseFloat(p.amount||0),0)||8193.17;
+  const inArrivo=data?.payouts?.filter(p=>p.status==="in_transit").reduce((s,p)=>s+parseFloat(p.amount||0),0)||0;
+
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div><h2 style={{fontSize:17,fontWeight:700,color:B}}>Cash Flow</h2><p style={{fontSize:11,color:MUTED,marginTop:3}}>Bonifici Shopify Payments — separato dal COD logistica</p></div>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      <KpiCard label="Totale ricevuto" value="€8.193,17" sub="54 bonifici" accent={G} bg={G+"12"} half/>
-      <KpiCard label="In arrivo" value="€0,00" sub="programmati" accent={O} bg={O+"12"} half/>
-      <KpiCard label="Bonifico medio" value="€151,73" half/>
+      <KpiCard label="Totale ricevuto" value={"€"+totalRicevuto.toLocaleString("it-IT",{minimumFractionDigits:2})} sub={(data?.payouts?.filter(p=>p.status==="paid").length||54)+" bonifici"} accent={G} bg={G+"12"} half/>
+      <KpiCard label="In arrivo" value={"€"+inArrivo.toLocaleString("it-IT",{minimumFractionDigits:2})} sub="programmati" accent={O} bg={O+"12"} half/>
+      <KpiCard label="Bonifico medio" value={"€"+(totalRicevuto/(data?.payouts?.filter(p=>p.status==="paid").length||1)||151.73).toFixed(2).replace(".",",")} half/>
     </div>
     <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:"hidden"}}>
       <GH label="Ultimi payout"/>
       <TableWrap>
         <thead><tr style={{background:SURF}}><TH>Data</TH><TH right>Importo</TH><TH>Status</TH></tr></thead>
-        <tbody>{payouts.map((p,i)=>(
+        <tbody>{displayPayouts.map((p,i)=>(
           <tr key={i} style={{borderTop:`1px solid ${BORDER}`,background:i%2?"rgba(255,255,255,0.01)":"transparent"}}>
             <TD m>{p.date}</TD><TD right m bold>{p.imp}</TD>
             <td style={{padding:"9px 12px"}}><Badge text={p.st} type={p.st==="Pagato"?"success":"info"}/></td>
@@ -633,13 +658,24 @@ function LiquidazioneTab(){
   </div>);
 }
 
-function OrdiniTab({m}){
+function OrdiniTab({m,data}){
   const [q,setQ]=useState("");
   const [can,setCan]=useState("Tutti");
   const [fin,setFin]=useState("Tutti");
   const fC={paid:"success",pending:"warning",voided:"danger"};
-  const tC={Shipped:"success","In transit":"info"};
-  const filtered=orders.filter(o=>
+  const tC={Shipped:"success","In transit":"info","shipped":"success","in_transit":"info"};
+  // Usa ordini reali se disponibili, altrimenti mock
+  const rawOrders=data?.orders?.length?data.orders.map(o=>({
+    id:o.name||o.id,
+    date:(o.created_at||"").slice(0,10),
+    total:"€"+(parseFloat(o.total_price||0).toFixed(2).replace(".",",")),
+    canale:(o.payment_gateway||o.canale||"").toLowerCase().includes("cod")?"COD":"Carta",
+    bundle:o.bundle||"—",
+    fin:o.financial_status||o.fin||"pending",
+    prov:o.billing_address?.province_code||o.province||o.prov||"—",
+    track:o.fulfillment_status||o.track||"—",
+  })):orders;
+  const filtered=rawOrders.filter(o=>
     (o.id.toLowerCase().includes(q.toLowerCase())||o.prov.toLowerCase().includes(q.toLowerCase()))&&
     (can==="Tutti"||o.canale===can)&&(fin==="Tutti"||o.fin===fin)
   );
@@ -706,14 +742,104 @@ const TABS=[
   {id:"ordini",label:"Ordini",C:OrdiniTab},
 ];
 
-export default function Dashboard(){
+// ── API helpers ──────────────────────────────────────────────────────────────
+const API=process.env.REACT_APP_API_URL||"http://localhost:4000/api";
+function apiGet(path){
+  const token=localStorage.getItem("3ml_token");
+  return fetch(API+path,{headers:{Authorization:"Bearer "+token}}).then(r=>r.json()).catch(()=>null);
+}
+
+export default function Dashboard({user,onLogout}){
   const [tab,setTab]=useState("overview");
-  const [brand,setBrand]=useState("MELLOW");
   const [preset,setPreset]=useState("7g");
   const [menu,setMenu]=useState(false);
+  const [dateFrom,setDateFrom]=useState("2026-03-17");
+  const [dateTo,setDateTo]=useState("2026-03-24");
+
+  // Brand dinamici dal backend
+  const [connectedBrands,setConnectedBrands]=useState([]);
+  const [activeBrand,setActiveBrand]=useState(null);
+  const [loadingBrands,setLoadingBrands]=useState(true);
+
+  // Dati reali dal backend
+  const [data,setData]=useState({loading:false,orders:[],pl:null,trend:[],shipments:[],exceptions:[],payouts:[],products:[],discounts:null,metaAds:null,deliveryStatus:null});
+
   const w=useW();
   const m=w<680;
   const Active=TABS.find(t=>t.id===tab)?.C||OverviewTab;
+
+  // Carica brand al mount
+  useEffect(()=>{
+    apiGet("/brands").then(res=>{
+      if(res?.brands?.length){
+        setConnectedBrands(res.brands);
+        setActiveBrand(res.brands[0]);
+        localStorage.setItem("3ml_brand",res.brands[0].slug);
+      }
+      setLoadingBrands(false);
+    });
+  },[]);
+
+  // Carica dati quando cambia brand o date
+  useEffect(()=>{
+    if(!activeBrand)return;
+    setData(d=>({...d,loading:true}));
+    const qs="?from="+dateFrom+"&to="+dateTo;
+    Promise.allSettled([
+      apiGet("/analytics/pl"+qs),
+      apiGet("/shopify/orders"+qs),
+      apiGet("/qapla/shipments"+qs),
+      apiGet("/qapla/exceptions"+qs),
+      apiGet("/qapla/status"+qs),
+      apiGet("/shopify/payouts"+qs),
+      apiGet("/shopify/products"),
+      apiGet("/shopify/discounts"+qs),
+      apiGet("/meta/insights"+qs),
+    ]).then(([pl,ord,ship,exc,del,pay,prod,disc,ads])=>{
+      const g=r=>r.status==="fulfilled"?r.value:null;
+      setData({
+        loading:false,
+        pl:g(pl)?.pl||null,
+        trend:g(pl)?.trend||[],
+        orders:Array.isArray(g(ord))?g(ord):[],
+        shipments:Array.isArray(g(ship))?g(ship):[],
+        exceptions:Array.isArray(g(exc))?g(exc):[],
+        deliveryStatus:g(del),
+        payouts:Array.isArray(g(pay))?g(pay):[],
+        products:Array.isArray(g(prod))?g(prod):[],
+        discounts:g(disc),
+        metaAds:g(ads),
+      });
+    });
+  },[activeBrand,dateFrom,dateTo]);
+
+  function handleApply(){
+    // Trigger refetch mantenendo le date selezionate
+    setData(d=>({...d,loading:true}));
+    const qs="?from="+dateFrom+"&to="+dateTo;
+    Promise.allSettled([
+      apiGet("/analytics/pl"+qs),
+      apiGet("/shopify/orders"+qs),
+      apiGet("/qapla/shipments"+qs),
+      apiGet("/qapla/exceptions"+qs),
+      apiGet("/qapla/status"+qs),
+      apiGet("/shopify/payouts"+qs),
+      apiGet("/shopify/products"),
+      apiGet("/shopify/discounts"+qs),
+      apiGet("/meta/insights"+qs),
+    ]).then(([pl,ord,ship,exc,del,pay,prod,disc,ads])=>{
+      const g=r=>r.status==="fulfilled"?r.value:null;
+      setData({loading:false,pl:g(pl)?.pl||null,trend:g(pl)?.trend||[],orders:Array.isArray(g(ord))?g(ord):[],shipments:Array.isArray(g(ship))?g(ship):[],exceptions:Array.isArray(g(exc))?g(exc):[],deliveryStatus:g(del),payouts:Array.isArray(g(pay))?g(pay):[],products:Array.isArray(g(prod))?g(prod):[],discounts:g(disc),metaAds:g(ads)});
+    });
+  }
+
+  function handleBrandSelect(b){
+    setActiveBrand(b);
+    localStorage.setItem("3ml_brand",b.slug);
+  }
+
+  // Colori brand: primo verde, secondo blu, terzo arancio, ecc.
+  const brandColors=[G,B,O,P,"#ff6635","#ff4488"];
 
   return(
     <div style={{background:BG,minHeight:"100vh",color:TEXT,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
@@ -730,58 +856,103 @@ export default function Dashboard(){
       `}</style>
 
       {/* TOP BAR */}
-      <div style={{background:SURF,borderBottom:`1px solid ${BORDER}`,padding:"0 14px",height:52,display:"flex",alignItems:"center",gap:8,position:"sticky",top:0,zIndex:200}}>
+      <div style={{background:SURF,borderBottom:"1px solid "+BORDER,padding:"0 14px",height:52,display:"flex",alignItems:"center",gap:8,position:"sticky",top:0,zIndex:200}}>
         <div style={{flexShrink:0,marginRight:6}}>
           <img src="/logo.png" alt="3ML Logistics" style={{height:34,width:"auto",display:"block"}}/>
         </div>
+
+        {/* Brand switcher dinamico */}
         <div style={{display:"flex",gap:3}}>
-          {["Tutti","NAIRE","MELLOW"].map(b=>(
-            <button key={b} onClick={()=>setBrand(b)} style={{background:brand===b?(b==="MELLOW"?G:b==="NAIRE"?B:DIM):"transparent",color:brand===b?(b==="MELLOW"||b==="NAIRE"?"#000":TEXT):MUTED,border:`1px solid ${brand===b?(b==="MELLOW"?G:b==="NAIRE"?B:BORDER):"transparent"}`,borderRadius:6,padding:"4px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{b}</button>
-          ))}
+          {loadingBrands?(
+            <div style={{fontSize:10,color:MUTED,padding:"4px 8px"}}>...</div>
+          ):(
+            <>
+              {connectedBrands.length>1&&(
+                <button onClick={()=>setActiveBrand(null)} style={{background:!activeBrand?DIM:"transparent",color:!activeBrand?TEXT:MUTED,border:"1px solid "+(!activeBrand?BORDER:"transparent"),borderRadius:6,padding:"4px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Tutti</button>
+              )}
+              {connectedBrands.map((b,i)=>{
+                const col=brandColors[i]||G;
+                const isActive=activeBrand?.slug===b.slug;
+                return(
+                  <button key={b.slug} onClick={()=>handleBrandSelect(b)} style={{background:isActive?col:"transparent",color:isActive?"#000":MUTED,border:"1px solid "+(isActive?col:"transparent"),borderRadius:6,padding:"4px 9px",fontSize:10,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                    {isActive&&<span style={{width:6,height:6,borderRadius:"50%",background:"#000",flexShrink:0}}/>}
+                    {b.name}
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
+
         <div style={{flex:1}}/>
+
+        {/* Date picker desktop */}
         {!m&&<>
           <div style={{display:"flex",gap:2}}>
-            {["Oggi","7g","1m","2m","3m"].map(p=>(
-              <button key={p} onClick={()=>setPreset(p)} style={{background:preset===p?B:"transparent",color:preset===p?"#fff":MUTED,border:`1px solid ${preset===p?B:"transparent"}`,borderRadius:5,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{p}</button>
+            {[["Oggi",0],["7g",7],["1m",30],["2m",60],["3m",90]].map(([label,days])=>(
+              <button key={label} onClick={()=>{
+                setPreset(label);
+                const to=new Date();
+                const from=new Date();
+                from.setDate(from.getDate()-days);
+                setDateTo(to.toISOString().slice(0,10));
+                setDateFrom(from.toISOString().slice(0,10));
+              }} style={{background:preset===label?B:"transparent",color:preset===label?"#fff":MUTED,border:"1px solid "+(preset===label?B:"transparent"),borderRadius:5,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{label}</button>
             ))}
           </div>
-          <input type="date" defaultValue="2026-03-17" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:6,padding:"4px 8px",fontSize:10,outline:"none"}}/>
+          <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{background:CARD,border:"1px solid "+BORDER,borderRadius:6,padding:"4px 8px",fontSize:10,outline:"none"}}/>
           <span style={{color:MUTED,fontSize:11}}>→</span>
-          <input type="date" defaultValue="2026-03-24" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:6,padding:"4px 8px",fontSize:10,outline:"none"}}/>
-          <button style={{background:B,color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Applica</button>
+          <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{background:CARD,border:"1px solid "+BORDER,borderRadius:6,padding:"4px 8px",fontSize:10,outline:"none"}}/>
+          <button onClick={handleApply} style={{background:B,color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Applica</button>
         </>}
-        {m&&<button onClick={()=>setMenu(v=>!v)} style={{background:"transparent",border:`1px solid ${BORDER}`,borderRadius:7,padding:"7px 10px",cursor:"pointer",color:TEXT,fontSize:15,lineHeight:1}}>{menu?"✕":"☰"}</button>}
-        <div style={{background:P,borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,color:"#fff",flexShrink:0}}>{brand==="MELLOW"?"Mellow":brand==="NAIRE"?"Naire":"Admin"}</div>
+
+        {m&&<button onClick={()=>setMenu(v=>!v)} style={{background:"transparent",border:"1px solid "+BORDER,borderRadius:7,padding:"7px 10px",cursor:"pointer",color:TEXT,fontSize:15,lineHeight:1}}>{menu?"✕":"☰"}</button>}
+
+        {/* User badge + logout */}
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <div style={{background:P,borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,color:"#fff",flexShrink:0,cursor:"pointer"}} title="Clicca per uscire" onClick={onLogout}>
+            {activeBrand?.name||user?.name||"Admin"}
+          </div>
+        </div>
+
+        {/* Loading indicator */}
+        {data.loading&&<div style={{width:6,height:6,borderRadius:"50%",background:G,flexShrink:0,animation:"pulse 1s infinite"}}/>}
       </div>
 
       {/* MOBILE FILTER PANEL */}
       {m&&menu&&(
-        <div style={{background:SURF,borderBottom:`1px solid ${BORDER}`,padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{background:SURF,borderBottom:"1px solid "+BORDER,padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
           <div style={{display:"flex",gap:4}}>
-            {["Oggi","7g","1m","2m","3m"].map(p=>(
-              <button key={p} onClick={()=>setPreset(p)} style={{background:preset===p?B:"transparent",color:preset===p?"#fff":MUTED,border:`1px solid ${preset===p?B:BORDER}`,borderRadius:6,padding:"7px 0",fontSize:11,fontWeight:700,cursor:"pointer",flex:1}}>{p}</button>
+            {[["Oggi",0],["7g",7],["1m",30],["2m",60],["3m",90]].map(([label,days])=>(
+              <button key={label} onClick={()=>{setPreset(label);const to=new Date();const from=new Date();from.setDate(from.getDate()-days);setDateTo(to.toISOString().slice(0,10));setDateFrom(from.toISOString().slice(0,10));}} style={{background:preset===label?B:"transparent",color:preset===label?"#fff":MUTED,border:"1px solid "+(preset===label?B:BORDER),borderRadius:6,padding:"7px 0",fontSize:11,fontWeight:700,cursor:"pointer",flex:1}}>{label}</button>
             ))}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <input type="date" defaultValue="2026-03-17" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"7px 10px",fontSize:11,outline:"none",flex:1}}/>
+            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{background:CARD,border:"1px solid "+BORDER,borderRadius:8,padding:"7px 10px",fontSize:11,outline:"none",flex:1}}/>
             <span style={{color:MUTED}}>→</span>
-            <input type="date" defaultValue="2026-03-24" style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"7px 10px",fontSize:11,outline:"none",flex:1}}/>
-            <button onClick={()=>setMenu(false)} style={{background:B,color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>OK</button>
+            <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{background:CARD,border:"1px solid "+BORDER,borderRadius:8,padding:"7px 10px",fontSize:11,outline:"none",flex:1}}/>
+            <button onClick={()=>{handleApply();setMenu(false);}} style={{background:B,color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>OK</button>
           </div>
         </div>
       )}
 
       {/* TAB NAV */}
-      <div className="tabnav" style={{background:SURF,borderBottom:`1px solid ${BORDER}`,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:52,zIndex:100}}>
+      <div className="tabnav" style={{background:SURF,borderBottom:"1px solid "+BORDER,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:52,zIndex:100}}>
         {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"transparent",color:tab===t.id?G:MUTED,border:"none",borderBottom:tab===t.id?`2px solid ${G}`:"2px solid transparent",padding:m?"12px 11px":"10px 14px",fontSize:m?10:11,fontWeight:tab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,transition:"color 0.1s"}}>{t.label}</button>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"transparent",color:tab===t.id?G:MUTED,border:"none",borderBottom:tab===t.id?"2px solid "+G:"2px solid transparent",padding:m?"12px 11px":"10px 14px",fontSize:m?10:11,fontWeight:tab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,transition:"color 0.1s"}}>{t.label}</button>
         ))}
       </div>
 
       {/* CONTENT */}
       <div style={{padding:m?"14px":"24px",maxWidth:1440,margin:"0 auto"}}>
-        <Active m={m}/>
+        {data.loading&&!data.orders.length?(
+          <div style={{textAlign:"center",padding:"60px 0",color:MUTED,fontSize:13}}>
+            <div style={{fontSize:24,marginBottom:12}}>⟳</div>
+            Caricamento dati...
+          </div>
+        ):(
+          <Active m={m} data={data} brand={activeBrand}/>
+        )}
       </div>
     </div>
   );
