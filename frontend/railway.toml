@@ -1,0 +1,13 @@
+# Railway configuration — Frontend React
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npx serve -s build -l $PORT"
+healthcheckPath = "/"
+healthcheckTimeout = 30
+
+# Variabili d'ambiente da impostare nel pannello Railway:
+# REACT_APP_API_URL → URL del backend, es:
+#                     https://3ml-backend.up.railway.app/api

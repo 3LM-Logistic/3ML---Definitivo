@@ -1,0 +1,25 @@
+# Railway configuration — Backend
+# Questo file dice a Railway come buildare e avviare il backend.
+# Documentazione: https://docs.railway.app/reference/config-as-code
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Variabili d'ambiente — imposta queste nel pannello Railway:
+# PORT            → impostata automaticamente da Railway
+# DATABASE_URL    → impostata automaticamente dal plugin PostgreSQL
+# JWT_SECRET      → genera con: openssl rand -hex 32
+# USE_MOCK        → true (poi false quando hai le API key)
+# SHOPIFY_STORE   → es. il-tuo-store.myshopify.com
+# SHOPIFY_ACCESS_TOKEN
+# QAPLA_API_KEY
+# META_ACCESS_TOKEN
+# META_AD_ACCOUNT_ID
+# FRONTEND_URL    → URL del tuo frontend Railway
