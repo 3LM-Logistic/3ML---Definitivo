@@ -19,6 +19,8 @@ app.use('/api/shopify',    require('./routes/shopify'));
 app.use('/api/qapla',      require('./routes/qapla'));
 app.use('/api/meta',       require('./routes/meta'));
 app.use('/api/analytics',  require('./routes/analytics'));
+app.use('/api/fees',       require('./routes/fees'));
+app.use('/api/brands',     require('./routes/brands'));
 // Futuro:
 // app.use('/api/google',  require('./routes/google'));
 // app.use('/api/tiktok',  require('./routes/tiktok'));
