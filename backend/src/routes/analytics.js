@@ -9,13 +9,21 @@ const metaSvc = require('../services/meta');
 router.get('/pl', async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const [orders, shipments, adInsights] = await Promise.all([
+
+    // Carica tutto in parallelo — se una fonte fallisce, usa valori vuoti
+    const [ordersRes, shipmentsRes, adsRes] = await Promise.allSettled([
       shopify.getOrders({ from, to }),
       qapla.getShipments({ from, to }),
       metaSvc.getAdInsights({ from, to }),
     ]);
-    const pl    = calculatePL({ orders, shipments, adSpend: { meta: adInsights.spend } });
+
+    const orders    = ordersRes.status === 'fulfilled' ? ordersRes.value : [];
+    const shipments = shipmentsRes.status === 'fulfilled' ? shipmentsRes.value : [];
+    const adInsights = adsRes.status === 'fulfilled' ? adsRes.value : { spend: 0, roas: 0, cpa: 0 };
+
+    const pl    = calculatePL({ orders, shipments, adSpend: { meta: adInsights.spend || 0 } });
     const trend = buildDailyTrend(orders);
+
     res.json({ pl, trend, meta: adInsights });
   } catch(e) { next(e); }
 });
@@ -24,12 +32,18 @@ router.get('/pl', async (req, res, next) => {
 router.get('/overview', async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const [orders, shipments, adInsights] = await Promise.all([
+
+    const [ordersRes, shipmentsRes, adsRes] = await Promise.allSettled([
       shopify.getOrders({ from, to }),
       qapla.getShipments({ from, to }),
       metaSvc.getAdInsights({ from, to }),
     ]);
-    const pl = calculatePL({ orders, shipments, adSpend: { meta: adInsights.spend } });
+
+    const orders    = ordersRes.status === 'fulfilled' ? ordersRes.value : [];
+    const shipments = shipmentsRes.status === 'fulfilled' ? shipmentsRes.value : [];
+    const adInsights = adsRes.status === 'fulfilled' ? adsRes.value : { spend: 0 };
+
+    const pl = calculatePL({ orders, shipments, adSpend: { meta: adInsights.spend || 0 } });
     res.json({ pl, orders_count: orders.length });
   } catch(e) { next(e); }
 });
