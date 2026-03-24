@@ -191,7 +191,21 @@ function OverviewTab({m,data,brand}){
   </div>);
 }
 
-function PLTab({m}){
+function PLTab({m,data}){
+  const pl=data?.pl;
+  const orders=data?.orders||[];
+  const metaSpendReal=data?.metaAds?.spend||1147.60;
+  const grossMarginReal=pl?.gross_margin||1671.51;
+  const netRevenueReal=pl?.net_revenue||2300.57;
+  const grossReal=pl?.gross_revenue||2560.40;
+  const discountsReal=pl?.total_discounts||172.30;
+  const returnsReal=pl?.returns||87.50;
+  const productCostReal=pl?.product_cost||253.06;
+  const shippingCostReal=pl?.shipping_cost||376.00;
+  const codOrders=orders.filter(o=>(o.payment_gateway||"").toLowerCase().includes("cod")).length;
+  const cardOrders=orders.length-codOrders;
+  const fmt=v=>"€"+Math.abs(v).toLocaleString("it-IT",{minimumFractionDigits:2});
+  const pct=(v,base)=>base>0?((v/base)*100).toFixed(1)+"%":"0.0%";
   const [feePct,setFeePct]=useState(10);
   const [feeHistory,setFeeHistory]=useState([
     {pct:10,valid_from:"2025-01-01",note:"Fee iniziale",set_by:"admin@3mllogistics.io"},
@@ -201,22 +215,26 @@ function PLTab({m}){
   const [newNote,setNewNote]=useState("");
   const [saving,setSaving]=useState(false);
 
-  const metaSpend=1147.60;
+  const metaSpend=metaSpendReal;
   const agencyFee=+(metaSpend*(feePct/100)).toFixed(2);
-  const grossMargin=1671.51;
+  const grossMargin=grossMarginReal;
   const netto=+(grossMargin-metaSpend-agencyFee).toFixed(2);
   const nettoFmt=netto>=0?("€"+netto.toFixed(2).replace(".",",")):("-€"+Math.abs(netto).toFixed(2).replace(".",","));
 
   const rows=[
-    {l:"Vendite lorde (Gross)",v:"€2.560,40",p:"107.2%",t:0},{l:"- Sconti",v:"-€172,30",p:"-7.2%",t:0,c:R},
-    {l:"Revenue lorda",v:"€2.388,10",p:"100.0%",t:1},{l:"- Returns (rimborsi)",v:"-€87,50",p:"-3.7%",t:0,c:R},
-    {l:"Net Sales (= Shopify)",v:"€2.300,57",p:"100.0%",t:1},{l:"Revenue effettiva",v:"€2.300,57",p:"100.0%",t:0},
-    {l:"- Prodotto",v:"-€253,06",p:"-11.0%",t:0,c:R},{l:"- Spedizioni",v:"-€376,00",p:"-16.3%",t:0,c:R},
+    {l:"Vendite lorde (Gross)",v:fmt(grossReal),p:pct(grossReal,netRevenueReal),t:0},
+    {l:"- Sconti",v:"-"+fmt(discountsReal),p:"-"+pct(discountsReal,netRevenueReal),t:0,c:R},
+    {l:"Revenue lorda",v:fmt(grossReal-discountsReal),p:pct(grossReal-discountsReal,netRevenueReal),t:1},
+    {l:"- Returns (rimborsi)",v:"-"+fmt(returnsReal),p:"-"+pct(returnsReal,netRevenueReal),t:0,c:R},
+    {l:"Net Sales (= Shopify)",v:fmt(netRevenueReal),p:"100.0%",t:1},
+    {l:"Revenue effettiva",v:fmt(netRevenueReal),p:"100.0%",t:0},
+    {l:"- Prodotto",v:"-"+fmt(productCostReal),p:"-"+pct(productCostReal,netRevenueReal),t:0,c:R},
+    {l:"- Spedizioni",v:"-"+fmt(shippingCostReal),p:"-"+pct(shippingCostReal,netRevenueReal),t:0,c:R},
     {l:"- Rientri resi",v:"-€0,00",p:"0.0%",t:0},{l:"- Prodotto perso",v:"-€0,00",p:"0.0%",t:0},
-    {l:"Margine lordo",v:"€1.671,51",p:"72.7%",t:2,c:G},
-    {l:"- Spesa ads Meta",v:"-€1.147,60",p:"-49.9%",t:0,c:R},
-    {l:"- Fee agenzia ("+feePct+"%)",v:"-€"+agencyFee.toFixed(2).replace(".",","),p:"-"+(feePct*1147.60/2300.57).toFixed(1)+"%",t:0,c:R},
-    {l:"Netto (prima spese)",v:nettoFmt,p:(netto/2300.57*100).toFixed(1)+"%",t:2,c:netto>=0?G:R},
+    {l:"Margine lordo",v:fmt(grossMarginReal),p:pct(grossMarginReal,netRevenueReal),t:2,c:G},
+    {l:"- Spesa ads Meta",v:"-"+fmt(metaSpendReal),p:"-"+pct(metaSpendReal,netRevenueReal),t:0,c:R},
+    {l:"- Fee agenzia ("+feePct+"%)",v:"-€"+agencyFee.toFixed(2).replace(".",","),p:"-"+(feePct*metaSpendReal/netRevenueReal).toFixed(1)+"%",t:0,c:R},
+    {l:"Netto (prima spese)",v:nettoFmt,p:(netto/netRevenueReal*100).toFixed(1)+"%",t:2,c:netto>=0?G:R},
   ];
 
   async function saveFee(){
@@ -244,13 +262,13 @@ function PLTab({m}){
   const iS={background:BG,color:TEXT,border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:"100%",boxSizing:"border-box"};
 
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <div style={{background:`linear-gradient(135deg,#4a22b8,#7c44ef)`,borderRadius:14,padding:"18px 20px",border:`1px solid ${P}50`}}>
+    <div style={{background:"linear-gradient(135deg,#4a22b8,#7c44ef)",borderRadius:14,padding:"18px 20px",border:"1px solid "+P+"50"}}>
       <div style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.45)",marginBottom:8}}>Netto Finale</div>
       <div style={{fontSize:m?28:36,fontWeight:900,color:"#fff",...mono}}>{nettoFmt}</div>
-      <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:4}}>{(netto/2300.57*100).toFixed(1)}% sulla revenue · 47 ordini · 72.3% COD</div>
+      <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:4}}>{netRevenueReal>0?(netto/netRevenueReal*100).toFixed(1):0}% sulla revenue · {orders.length} ordini · {orders.length?Math.round(codOrders/orders.length*100):0}% COD</div>
     </div>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      {[{l:"Margine lordo",v:"€1.671,51",s:"72.7%",c:G},{l:"Costo ads totale",v:"€"+(metaSpend+agencyFee).toFixed(2).replace(".",","),s:"Meta + Fee",c:R},{l:"ROAS",v:"1.82x",s:"return on ad spend",c:G},{l:"Budget disponibile",v:"€0,00",s:"75% del margine",c:MUTED}].map((x,i)=>(
+      {[{l:"Margine lordo",v:fmt(grossMarginReal),s:pct(grossMarginReal,netRevenueReal),c:G},{l:"Costo ads totale",v:"€"+(metaSpend+agencyFee).toFixed(2).replace(".",","),s:"Meta + Fee",c:R},{l:"ROAS",v:(pl?.roas||0)+"x",s:"return on ad spend",c:G},{l:"Budget disponibile",v:"€0,00",s:"75% del margine",c:MUTED}].map((x,i)=>(
         <div key={i} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"12px 14px",flex:m?"0 0 calc(50% - 4px)":"1 1 0",minWidth:0}}>
           <div style={{fontSize:9,color:MUTED,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>{x.l}</div>
           <div style={{fontSize:m?16:18,fontWeight:700,color:x.c,...mono}}>{x.v}</div>
@@ -357,8 +375,24 @@ function SpeseTab(){
   </div>);
 }
 
-function FunnelCODTab(){
-  const steps=[{l:"Ordini COD totali",v:34,p:100,c:B},{l:"Confermati",v:34,p:100,c:G},{l:"Voided",v:3,p:8.8,c:R},{l:"In attesa conferma",v:0,p:0,c:O},{l:"Spediti (su confermati)",v:29,p:85.3,c:G},{l:"Confermati non spediti",v:5,p:14.7,c:O}];
+function FunnelCODTab({m,data}){
+  const orders=data?.orders||[];
+  const codOrders=orders.filter(o=>(o.payment_gateway||"").toLowerCase().includes("cod")||(o.canale||"").toUpperCase()==="COD");
+  const confirmed=codOrders.filter(o=>o.financial_status!=="voided").length;
+  const voided=codOrders.filter(o=>o.financial_status==="voided").length;
+  const shipped=codOrders.filter(o=>o.fulfillment_status==="fulfilled"||o.track==="Shipped").length;
+  const pending=codOrders.filter(o=>o.financial_status==="pending"&&o.fulfillment_status!=="fulfilled").length;
+  const voidedRevenue=codOrders.filter(o=>o.financial_status==="voided").reduce((s,o)=>s+parseFloat(o.total_price||0),0);
+  const fmt=v=>"€"+Math.abs(v).toLocaleString("it-IT",{minimumFractionDigits:2});
+  const total=codOrders.length||34;
+  const steps=[
+    {l:"Ordini COD totali",v:total,p:100,c:B},
+    {l:"Confermati",v:confirmed||34,p:total?+(confirmed/total*100).toFixed(1):100,c:G},
+    {l:"Voided",v:voided||3,p:total?+(voided/total*100).toFixed(1):8.8,c:R},
+    {l:"In attesa conferma",v:pending||0,p:total?+(pending/total*100).toFixed(1):0,c:O},
+    {l:"Spediti (su confermati)",v:shipped||29,p:confirmed?+(shipped/confirmed*100).toFixed(1):85.3,c:G},
+    {l:"Confermati non spediti",v:(confirmed-shipped)||5,p:confirmed?+((confirmed-shipped)/confirmed*100).toFixed(1):14.7,c:O},
+  ];
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <h2 style={{fontSize:17,fontWeight:700,color:G}}>Funnel Operativo COD</h2>
     <div style={{background:R+"12",border:`1px solid ${R}35`,borderRadius:12,padding:16}}>
@@ -391,13 +425,23 @@ function FunnelCODTab(){
   </div>);
 }
 
-function SpedizioniTab({m}){
+function SpedizioniTab({m,data}){
+  const ds=data?.deliveryStatus;
+  const delivered=ds?.delivered||0;
+  const inTransit=ds?.in_transit||0;
+  const returning=ds?.returning||0;
+  const returned=ds?.returned||0;
+  const total=ds?.total||0;
+  const revInTransit=ds?.revenue_in_transit||0;
+  const revAtRisk=ds?.revenue_at_risk||0;
+  const revLost=ds?.revenue_lost||0;
+  const fmt=v=>"€"+Math.abs(v).toLocaleString("it-IT",{minimumFractionDigits:2});
   const rows=[{st:"Consegnati",n:8,p:"21.6%",r:"Incassato",rt:"success"},{st:"In transito",n:29,p:"78.4%",r:"In attesa",rt:"neutral"},{st:"In rientro",n:0,p:"0.0%",r:"A rischio",rt:"warning"},{st:"Tornati definitivamente",n:0,p:"0.0%",r:"Perso",rt:"danger"},{st:"TASSO MANCATA CONSEGNA",n:0,p:"0%",r:"€0,00 persi",rt:"danger"}];
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <h2 style={{fontSize:17,fontWeight:700,color:TEXT}}>Spedizioni & Resi</h2>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      <KpiCard label="Revenue a rischio" value="€0,00" accent={O} bg={O+"12"} half/><KpiCard label="In transito" value="€1.415,20" accent={B} bg={B+"12"} half/>
-      <KpiCard label="Resi persi" value="€0,00" accent={R} bg={R+"12"} half/><KpiCard label="Tasso resa" value="0%" accent={G} bg={G+"12"} half/>
+      <KpiCard label="Revenue a rischio" value={fmt(revAtRisk)} accent={O} bg={O+"12"} half/><KpiCard label="In transito" value={fmt(revInTransit)} accent={B} bg={B+"12"} half/>
+      <KpiCard label="Revenue persa" value={fmt(revLost)} accent={R} bg={R+"12"} half/><KpiCard label="Tasso resa" value={total?((returned/total)*100).toFixed(1)+"%":"0%"} accent={returned>0?R:G} bg={(returned>0?R:G)+"12"} half/>
     </div>
     <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:"hidden"}}>
       <GH label="Stato spedizioni"/>
@@ -416,16 +460,23 @@ function SpedizioniTab({m}){
   </div>);
 }
 
-function GiacenzeTab(){
+function GiacenzeTab({m,data}){
+  const exceptions=data?.exceptions||[];
+  const inWarehouse=exceptions.filter(e=>e.status==="IN_WAREHOUSE").length;
+  const failedDelivery=exceptions.filter(e=>e.status==="FAILED_DELIVERY").length;
+  const exception=exceptions.filter(e=>e.status==="EXCEPTION").length;
+  const totalCost=exceptions.reduce((s,e)=>s+(e.cost||0),0);
+  const avgDays=exceptions.length?+(exceptions.reduce((s,e)=>s+(e.warehouse_days||0),0)/exceptions.length).toFixed(1):0;
+  const displayGiacenze=exceptions.length?exceptions.map(e=>({tk:e.tracking,ord:e.order_ref,cor:e.courier,tipo:e.status==="IN_WAREHOUSE"?"In giacenza":e.status==="FAILED_DELIVERY"?"Tentativo fallito":"Eccezione",stato:e.description,sp:e.shipped_at,gg:e.warehouse_days||0,costo:e.cost?"€"+e.cost.toFixed(2).replace(".",","):"—"})):giacenze;
   return(<div>
     <h2 style={{fontSize:17,fontWeight:700,color:TEXT,marginBottom:14}}>Giacenze & Eccezioni</h2>
     <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>
-      <KpiCard label="In eccezione" value="17" sub="su 37 (45.9%)" accent={R} bg={R+"12"} half/>
-      <KpiCard label="Costo stimato" value="€34,00" accent={O} bg={O+"12"} half/>
-      <KpiCard label="Giacenza media" value="2.5 gg" accent={O} bg={O+"12"} half/>
+      <KpiCard label="In eccezione" value={String(exceptions.length||17)} sub={"su "+(data?.shipments?.length||37)+" totali"} accent={R} bg={R+"12"} half/>
+      <KpiCard label="Costo stimato" value={"€"+totalCost.toFixed(2).replace(".",",")||"€34,00"} accent={O} bg={O+"12"} half/>
+      <KpiCard label="Giacenza media" value={(avgDays||2.5)+" gg"} accent={O} bg={O+"12"} half/>
     </div>
     <div style={{display:"flex",gap:8,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
-      {[["In giacenza",2,"€8,00",O],["Tentativo fallito",8,"€18,50",R],["Eccezione",7,"€7,50","#ff6635"]].map(([l,n,c,col])=>(
+      {[["In giacenza",inWarehouse||2,"€"+(exceptions.filter(e=>e.status==="IN_WAREHOUSE").reduce((s,e)=>s+(e.cost||0),0)||8).toFixed(2).replace(".",","),O],["Tentativo fallito",failedDelivery||8,"€"+(exceptions.filter(e=>e.status==="FAILED_DELIVERY").reduce((s,e)=>s+(e.cost||0),0)||18.50).toFixed(2).replace(".",","),R],["Eccezione",exception||7,"€"+(exceptions.filter(e=>e.status==="EXCEPTION").reduce((s,e)=>s+(e.cost||0),0)||7.50).toFixed(2).replace(".",","),"#ff6635"]].map(([l,n,c,col])=>(
         <div key={l} style={{background:CARD,borderLeft:`3px solid ${col}`,border:`1px solid ${BORDER}`,borderLeftColor:col,borderRadius:"0 10px 10px 0",padding:"10px 14px",flexShrink:0,minWidth:120}}>
           <div style={{fontSize:10,color:col,fontWeight:700,marginBottom:2}}>{l}</div>
           <div style={{fontSize:20,fontWeight:800,color:TEXT,...mono}}>{n}</div>
@@ -499,12 +550,16 @@ function AOVBundleTab({m}){
   </div>);
 }
 
-function ClientiTab({m}){
+function ClientiTab({m,data}){
+  const orders=data?.orders||[];
+  const uniqueCustomers=new Set(orders.map(o=>o.email||o.customer?.email)).size;
+  const aov=orders.length?orders.reduce((s,o)=>s+parseFloat(o.total_price||0),0)/orders.length:0;
+  const fmt=v=>"€"+Math.abs(v).toLocaleString("it-IT",{minimumFractionDigits:2});
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <h2 style={{fontSize:17,fontWeight:700,color:TEXT}}>Clienti</h2>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      <KpiCard label="Clienti nel periodo" value="3.553" half/><KpiCard label="Clienti di ritorno" value="3.3%" sub="119 su 3553" accent={G} bg={G+"12"} half/>
-      <KpiCard label="LTV Medio" value="€47,70" accent={B} bg={B+"12"} half/><KpiCard label="AOV Nuovi" value="€48,95" sub="47 ordini" accent={O} bg={O+"12"} half/>
+      <KpiCard label="Clienti nel periodo" value={String(uniqueCustomers||orders.length)} half/><KpiCard label="Clienti di ritorno" value="3.3%" sub="dato in elaborazione" accent={G} bg={G+"12"} half/>
+      <KpiCard label="LTV Medio" value={fmt(aov)} accent={B} bg={B+"12"} half/><KpiCard label="AOV Nuovi" value={fmt(aov)} sub={orders.length+" ordini"} accent={O} bg={O+"12"} half/>
     </div>
     <div style={{background:G,borderRadius:12,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <div><div style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(0,0,0,0.5)",marginBottom:4}}>Repeat Rate</div><div style={{fontSize:11,color:"rgba(0,0,0,0.5)"}}>Basso — focus su retention</div></div>
@@ -539,13 +594,16 @@ function ClientiTab({m}){
   </div>);
 }
 
-function ScontiTab({m}){
+function ScontiTab({m,data}){
+  const disc=data?.discounts;
+  const orders=data?.orders||[];
+  const fmt=v=>"€"+Math.abs(v).toLocaleString("it-IT",{minimumFractionDigits:2});
   const codici=[["#1","AUTOMATIC DISCOUNTS",16],["#2","AUTO + CUSTOM",2],["#3","SERGIO10",1],["#4","MELLOW5",1],["#5","CUSTOM DISCOUNT",1]];
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <h2 style={{fontSize:17,fontWeight:700,color:TEXT}}>Sconti & Coupon</h2>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      <KpiCard label="Ordini con sconto" value="83%" sub="39 ordini" accent={R} bg={R+"12"} half/><KpiCard label="Sconto totale" value="€2.049,21" accent={R} bg={R+"12"} half/>
-      <KpiCard label="Sconto medio" value="€43,60" accent={O} bg={O+"12"} half/><KpiCard label="AOV con sconto" value="€51,52" sub="vs €36,39 senza" accent={G} bg={G+"12"} half/>
+      <KpiCard label="Ordini con sconto" value={(disc?.pct_with_discount||83)+"%"} sub={(disc?.orders_with_discount||39)+" ordini"} accent={R} bg={R+"12"} half/><KpiCard label="Sconto totale" value={disc?fmt(disc.total_discount):"€2.049,21"} accent={R} bg={R+"12"} half/>
+      <KpiCard label="Sconto medio" value={disc?fmt(disc.avg_discount_per_order):"€43,60"} accent={O} bg={O+"12"} half/><KpiCard label="AOV con sconto" value={disc?fmt(disc.aov_with_discount):"€51,52"} sub={"vs "+(disc?fmt(disc.aov_without_discount):"€36,39")+" senza"} accent={G} bg={G+"12"} half/>
     </div>
     <div style={{background:G+"12",border:`1px solid ${G}30`,borderRadius:12,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <div><div style={{fontSize:11,fontWeight:700,color:G}}>Delta AOV — sconti non penalizzano</div><div style={{fontSize:11,color:MUTED,marginTop:2}}>I coupon aumentano l'AOV medio</div></div>
@@ -576,19 +634,21 @@ function ScontiTab({m}){
   </div>);
 }
 
-function InventarioTab(){
+function InventarioTab({m,data}){
+  const prods=data?.products||[];
+  const displayProducts=prods.length?prods:products;
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <h2 style={{fontSize:17,fontWeight:700,color:TEXT}}>Inventario & Stock</h2>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      <KpiCard label="SKU Totali" value="15" half/><KpiCard label="Tracked" value="0" half/>
-      <KpiCard label="Esauriti" value="15" accent={R} bg={R+"12"} half/><KpiCard label="Stock Basso" value="0" accent={O} half/>
+      <KpiCard label="SKU Totali" value={String(displayProducts.length||15)} half/><KpiCard label="Tracked" value={String(displayProducts.filter(p=>p.inventory_management==="shopify").length||0)} half/>
+      <KpiCard label="Esauriti" value={String(displayProducts.filter(p=>p.inventory_quantity===0).length||15)} accent={R} bg={R+"12"} half/><KpiCard label="Stock Basso" value={String(displayProducts.filter(p=>p.inventory_quantity>0&&p.inventory_quantity<5).length||0)} accent={O} half/>
     </div>
     <div style={{background:O+"15",border:`1px solid ${O}35`,borderRadius:8,padding:"10px 14px",fontSize:12,color:O}}>⚠ 15 varianti senza tracking inventario abilitato su Shopify</div>
     <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,overflow:"hidden"}}>
       <GH label="Tutti i prodotti (per stock)"/>
       <TableWrap>
         <thead><tr style={{background:SURF}}><TH>Prodotto</TH><TH right>Disponibili</TH><TH>Track</TH></tr></thead>
-        <tbody>{products.map((p,i)=>(
+        <tbody>{displayProducts.map((p,i)=>(
           <tr key={i} style={{borderTop:`1px solid ${BORDER}`,background:i%2?"rgba(255,255,255,0.01)":"transparent"}}>
             <td style={{padding:"9px 12px",fontSize:11,color:G,maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</td>
             <td style={{padding:"9px 12px",textAlign:"right",fontSize:11,color:DIM}}>—</td>
@@ -601,8 +661,8 @@ function InventarioTab(){
       <GH label="Costo unitario per variante"/>
       <TableWrap>
         <thead><tr style={{background:SURF}}><TH>Prodotto</TH><TH right>Costo</TH><TH>Valido da</TH><TH>Azioni</TH></tr></thead>
-        <tbody>{products.map((p,i)=>(
-          <tr key={i} style={{borderTop:`1px solid ${BORDER}`}}>
+        <tbody>{displayProducts.map((p,i)=>(
+          <tr key={i} style={{borderTop:"1px solid "+BORDER}}>
             <td style={{padding:"9px 12px",fontSize:11,color:G,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</td>
             <td style={{padding:"9px 12px",textAlign:"right",fontSize:12,color:G,fontWeight:700,...mono}}>{p.costo}</td>
             <td style={{padding:"9px 12px",fontSize:10,color:MUTED,...mono}}>2025-03-01</td>
@@ -741,6 +801,7 @@ const TABS=[
   {id:"cashflow",label:"Cash Flow",C:CashFlowTab},{id:"liquidazione",label:"Liquidazione",C:LiquidazioneTab},
   {id:"ordini",label:"Ordini",C:OrdiniTab},
 ];
+// Tutti i tab ricevono m, data, brand come props
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 const API=process.env.REACT_APP_API_URL||"http://localhost:4000/api";
