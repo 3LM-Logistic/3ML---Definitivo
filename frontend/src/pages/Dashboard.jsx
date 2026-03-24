@@ -172,6 +172,21 @@ function OverviewTab({m}){
 }
 
 function PLTab({m}){
+  const [feePct,setFeePct]=useState(10);
+  const [feeHistory,setFeeHistory]=useState([
+    {pct:10,valid_from:"2025-01-01",note:"Fee iniziale",set_by:"admin@3mllogistics.io"},
+  ]);
+  const [showFeeEditor,setShowFeeEditor]=useState(false);
+  const [newPct,setNewPct]=useState("");
+  const [newNote,setNewNote]=useState("");
+  const [saving,setSaving]=useState(false);
+
+  const metaSpend=1147.60;
+  const agencyFee=+(metaSpend*(feePct/100)).toFixed(2);
+  const grossMargin=1671.51;
+  const netto=+(grossMargin-metaSpend-agencyFee).toFixed(2);
+  const nettoFmt=netto>=0?`€${netto.toFixed(2).replace(".",",")`:`-€${Math.abs(netto).toFixed(2).replace(".",",")}`;
+
   const rows=[
     {l:"Vendite lorde (Gross)",v:"€2.560,40",p:"107.2%",t:0},{l:"- Sconti",v:"-€172,30",p:"-7.2%",t:0,c:R},
     {l:"Revenue lorda",v:"€2.388,10",p:"100.0%",t:1},{l:"- Returns (rimborsi)",v:"-€87,50",p:"-3.7%",t:0,c:R},
@@ -179,17 +194,43 @@ function PLTab({m}){
     {l:"- Prodotto",v:"-€253,06",p:"-11.0%",t:0,c:R},{l:"- Spedizioni",v:"-€376,00",p:"-16.3%",t:0,c:R},
     {l:"- Rientri resi",v:"-€0,00",p:"0.0%",t:0},{l:"- Prodotto perso",v:"-€0,00",p:"0.0%",t:0},
     {l:"Margine lordo",v:"€1.671,51",p:"72.7%",t:2,c:G},
-    {l:"- Spesa ads Meta",v:"-€1.147,60",p:"-49.9%",t:0,c:R},{l:"- Fee agenzia (10%)",v:"-€114,76",p:"-5.0%",t:0,c:R},
-    {l:"Netto (prima spese)",v:"€409,15",p:"17.8%",t:2,c:G},
+    {l:`- Spesa ads Meta`,v:"-€1.147,60",p:"-49.9%",t:0,c:R},
+    {l:`- Fee agenzia (${feePct}%)`,v:`-€${agencyFee.toFixed(2).replace(".",",")}`,p:`-${(feePct*1147.60/2300.57).toFixed(1)}%`,t:0,c:R},
+    {l:"Netto (prima spese)",v:nettoFmt,p:`${(netto/2300.57*100).toFixed(1)}%`,t:2,c:netto>=0?G:R},
   ];
+
+  async function saveFee(){
+    const p=parseFloat(newPct);
+    if(isNaN(p)||p<0||p>100)return;
+    setSaving(true);
+    try{
+      const token=localStorage.getItem("3ml_token");
+      const brand=localStorage.getItem("3ml_brand")||"MELLOW";
+      const res=await fetch(`${process.env.REACT_APP_API_URL||"http://localhost:4000/api"}/fees/${brand}`,{
+        method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+        body:JSON.stringify({pct:p,note:newNote}),
+      });
+      if(res.ok){
+        const data=await res.json();
+        setFeePct(p);
+        setFeeHistory(data.history);
+        setShowFeeEditor(false);
+        setNewPct("");setNewNote("");
+      }
+    }catch(e){console.error(e);}
+    finally{setSaving(false);}
+  }
+
+  const iS={background:BG,color:TEXT,border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"'Plus Jakarta Sans',sans-serif",width:"100%",boxSizing:"border-box"};
+
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{background:`linear-gradient(135deg,#4a22b8,#7c44ef)`,borderRadius:14,padding:"18px 20px",border:`1px solid ${P}50`}}>
       <div style={{fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.45)",marginBottom:8}}>Netto Finale</div>
-      <div style={{fontSize:m?28:36,fontWeight:900,color:"#fff",...mono}}>€409,15</div>
-      <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:4}}>17.8% sulla revenue · 47 ordini · 72.3% COD</div>
+      <div style={{fontSize:m?28:36,fontWeight:900,color:"#fff",...mono}}>{nettoFmt}</div>
+      <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:4}}>{(netto/2300.57*100).toFixed(1)}% sulla revenue · 47 ordini · 72.3% COD</div>
     </div>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      {[{l:"Margine lordo",v:"€1.671,51",s:"72.7%",c:G},{l:"Costo ads totale",v:"€1.262,36",s:"Meta + Fee",c:R},{l:"ROAS",v:"1.82x",s:"return on ad spend",c:G},{l:"Budget disponibile",v:"€0,00",s:"75% del margine",c:MUTED}].map((x,i)=>(
+      {[{l:"Margine lordo",v:"€1.671,51",s:"72.7%",c:G},{l:"Costo ads totale",v:`€${(metaSpend+agencyFee).toFixed(2).replace(".",",")}`,s:"Meta + Fee",c:R},{l:"ROAS",v:"1.82x",s:"return on ad spend",c:G},{l:"Budget disponibile",v:"€0,00",s:"75% del margine",c:MUTED}].map((x,i)=>(
         <div key={i} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"12px 14px",flex:m?"0 0 calc(50% - 4px)":"1 1 0",minWidth:0}}>
           <div style={{fontSize:9,color:MUTED,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>{x.l}</div>
           <div style={{fontSize:m?16:18,fontWeight:700,color:x.c,...mono}}>{x.v}</div>
@@ -210,9 +251,59 @@ function PLTab({m}){
         ))}</tbody>
       </TableWrap>
     </div>
+    {/* Fee agenzia card */}
+    <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:12,padding:18}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Fee agenzia ads</div>
+          <div style={{fontSize:22,fontWeight:800,color:TEXT,...mono}}>{feePct}% <span style={{fontSize:13,color:MUTED,fontWeight:400}}>= €{agencyFee.toFixed(2).replace(".",",")} su €1.147,60</span></div>
+        </div>
+        <button onClick={()=>setShowFeeEditor(v=>!v)} style={{background:showFeeEditor?"transparent":G,color:showFeeEditor?MUTED:"#000",border:`1px solid ${showFeeEditor?BORDER:G}`,borderRadius:8,padding:"8px 16px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+          {showFeeEditor?"Annulla":"+ Modifica fee"}
+        </button>
+      </div>
+      {/* Editor nuova fee */}
+      {showFeeEditor&&(
+        <div style={{background:BG,border:`1px solid ${BORDER}`,borderRadius:10,padding:16,marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:TEXT,marginBottom:12}}>Imposta nuova percentuale</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
+            <div style={{flex:"1 1 120px",minWidth:0}}>
+              <div style={{fontSize:10,color:MUTED,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>% Fee (es. 12)</div>
+              <input type="number" min="0" max="100" step="0.5" value={newPct} onChange={e=>setNewPct(e.target.value)} placeholder="es. 12" style={iS}/>
+            </div>
+            <div style={{flex:"2 1 200px",minWidth:0}}>
+              <div style={{fontSize:10,color:MUTED,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Note (opzionale)</div>
+              <input type="text" value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="es. Aggiornamento Q2 2026" style={iS}/>
+            </div>
+          </div>
+          {newPct&&!isNaN(parseFloat(newPct))&&(
+            <div style={{background:`${G}15`,border:`1px solid ${G}30`,borderRadius:8,padding:"8px 12px",fontSize:12,color:G,marginBottom:10}}>
+              Con {newPct}% → fee = €{(1147.60*parseFloat(newPct)/100).toFixed(2).replace(".",",")} · Netto = €{(grossMargin-metaSpend-1147.60*parseFloat(newPct)/100).toFixed(2).replace(".",",")}
+            </div>
+          )}
+          <button onClick={saveFee} disabled={saving||!newPct} style={{background:(!newPct||saving)?DIM:G,color:"#000",border:"none",borderRadius:8,padding:"9px 20px",fontSize:12,fontWeight:700,cursor:(!newPct||saving)?"not-allowed":"pointer"}}>
+            {saving?"Salvataggio...":"Salva nuova fee →"}
+          </button>
+        </div>
+      )}
+      {/* Storico */}
+      <div style={{fontSize:10,fontWeight:700,color:MUTED,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Storico ({feeHistory.length})</div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {[...feeHistory].reverse().map((f,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:i===0?`${G}10`:BG,border:`1px solid ${i===0?G+"30":BORDER}`,borderRadius:8,flexWrap:"wrap",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:16,fontWeight:800,color:i===0?G:MUTED,...mono}}>{f.pct}%</span>
+              {i===0&&<Badge text="attuale" type="success"/>}
+              {f.note&&<span style={{fontSize:11,color:MUTED}}>{f.note}</span>}
+            </div>
+            <div style={{fontSize:10,color:DIM,...mono}}>{f.valid_from} · {f.set_by||"admin"}</div>
+          </div>
+        ))}
+      </div>
+    </div>
     <div style={{background:`${B}12`,border:`1px solid ${B}30`,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
       <div style={{width:8,height:8,borderRadius:"50%",background:G,flexShrink:0}}/>
-      <div><div style={{fontSize:12,fontWeight:700,color:B}}>Meta Ads — Connesso</div><div style={{fontSize:11,color:MUTED}}>Spesa aggiornata in tempo reale · Fee agenzia 10%</div></div>
+      <div><div style={{fontSize:12,fontWeight:700,color:B}}>Meta Ads — Connesso</div><div style={{fontSize:11,color:MUTED}}>Spesa aggiornata in tempo reale · Fee agenzia {feePct}%</div></div>
     </div>
   </div>);
 }
