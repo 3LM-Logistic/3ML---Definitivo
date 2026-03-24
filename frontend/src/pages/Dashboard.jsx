@@ -44,7 +44,7 @@ const GH=({label})=>(
 );
 const CT=({active,payload,label})=>{
   if(!active||!payload?.length)return null;
-  return <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 12px",fontSize:11}}><div style={{color:MUTED,marginBottom:4}}>{label}</div>{payload.map((p,i)=><div key={i} style={{color:p.color,...mono}}>{p.value}</div>)}</div>;
+  return <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 12px",fontSize:11}}><div style={{color:MUTED,marginBottom:4}}>{label}</div>{payload.map((p,i)=><div key={i} style={{color:p.color,...mono}}>€{p.value}</div>)}</div>;
 };
 
 const trendData=[
@@ -185,7 +185,7 @@ function PLTab({m}){
   const agencyFee=+(metaSpend*(feePct/100)).toFixed(2);
   const grossMargin=1671.51;
   const netto=+(grossMargin-metaSpend-agencyFee).toFixed(2);
-  const nettoFmt=netto>=0?`€${netto.toFixed(2).replace(".",",")`:`-€${Math.abs(netto).toFixed(2).replace(".",",")}`;
+  const nettoFmt=netto>=0?("€"+netto.toFixed(2).replace(".",",")):("-€"+Math.abs(netto).toFixed(2).replace(".",","));
 
   const rows=[
     {l:"Vendite lorde (Gross)",v:"€2.560,40",p:"107.2%",t:0},{l:"- Sconti",v:"-€172,30",p:"-7.2%",t:0,c:R},
@@ -194,9 +194,9 @@ function PLTab({m}){
     {l:"- Prodotto",v:"-€253,06",p:"-11.0%",t:0,c:R},{l:"- Spedizioni",v:"-€376,00",p:"-16.3%",t:0,c:R},
     {l:"- Rientri resi",v:"-€0,00",p:"0.0%",t:0},{l:"- Prodotto perso",v:"-€0,00",p:"0.0%",t:0},
     {l:"Margine lordo",v:"€1.671,51",p:"72.7%",t:2,c:G},
-    {l:`- Spesa ads Meta`,v:"-€1.147,60",p:"-49.9%",t:0,c:R},
-    {l:`- Fee agenzia (${feePct}%)`,v:`-€${agencyFee.toFixed(2).replace(".",",")}`,p:`-${(feePct*1147.60/2300.57).toFixed(1)}%`,t:0,c:R},
-    {l:"Netto (prima spese)",v:nettoFmt,p:`${(netto/2300.57*100).toFixed(1)}%`,t:2,c:netto>=0?G:R},
+    {l:"- Spesa ads Meta",v:"-€1.147,60",p:"-49.9%",t:0,c:R},
+    {l:"- Fee agenzia ("+feePct+"%)",v:"-€"+agencyFee.toFixed(2).replace(".",","),p:"-"+(feePct*1147.60/2300.57).toFixed(1)+"%",t:0,c:R},
+    {l:"Netto (prima spese)",v:nettoFmt,p:(netto/2300.57*100).toFixed(1)+"%",t:2,c:netto>=0?G:R},
   ];
 
   async function saveFee(){
@@ -230,7 +230,7 @@ function PLTab({m}){
       <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:4}}>{(netto/2300.57*100).toFixed(1)}% sulla revenue · 47 ordini · 72.3% COD</div>
     </div>
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-      {[{l:"Margine lordo",v:"€1.671,51",s:"72.7%",c:G},{l:"Costo ads totale",v:`€${(metaSpend+agencyFee).toFixed(2).replace(".",",")}`,s:"Meta + Fee",c:R},{l:"ROAS",v:"1.82x",s:"return on ad spend",c:G},{l:"Budget disponibile",v:"€0,00",s:"75% del margine",c:MUTED}].map((x,i)=>(
+      {[{l:"Margine lordo",v:"€1.671,51",s:"72.7%",c:G},{l:"Costo ads totale",v:"€"+(metaSpend+agencyFee).toFixed(2).replace(".",","),s:"Meta + Fee",c:R},{l:"ROAS",v:"1.82x",s:"return on ad spend",c:G},{l:"Budget disponibile",v:"€0,00",s:"75% del margine",c:MUTED}].map((x,i)=>(
         <div key={i} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"12px 14px",flex:m?"0 0 calc(50% - 4px)":"1 1 0",minWidth:0}}>
           <div style={{fontSize:9,color:MUTED,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>{x.l}</div>
           <div style={{fontSize:m?16:18,fontWeight:700,color:x.c,...mono}}>{x.v}</div>
@@ -277,8 +277,8 @@ function PLTab({m}){
             </div>
           </div>
           {newPct&&!isNaN(parseFloat(newPct))&&(
-            <div style={{background:`${G}15`,border:`1px solid ${G}30`,borderRadius:8,padding:"8px 12px",fontSize:12,color:G,marginBottom:10}}>
-              Con {newPct}% → fee = €{(1147.60*parseFloat(newPct)/100).toFixed(2).replace(".",",")} · Netto = €{(grossMargin-metaSpend-1147.60*parseFloat(newPct)/100).toFixed(2).replace(".",",")}
+            <div style={{background:G+"15",border:"1px solid "+G+"30",borderRadius:8,padding:"8px 12px",fontSize:12,color:G,marginBottom:10}}>
+              {"Con "+newPct+"% → fee = €"+(1147.60*parseFloat(newPct)/100).toFixed(2).replace(".",",")+" · Netto = €"+(grossMargin-metaSpend-1147.60*parseFloat(newPct)/100).toFixed(2).replace(".",",")}
             </div>
           )}
           <button onClick={saveFee} disabled={saving||!newPct} style={{background:(!newPct||saving)?DIM:G,color:"#000",border:"none",borderRadius:8,padding:"9px 20px",fontSize:12,fontWeight:700,cursor:(!newPct||saving)?"not-allowed":"pointer"}}>
